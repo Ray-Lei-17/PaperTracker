@@ -1,0 +1,31 @@
+name: 每周自研方向追踪
+
+on:
+  schedule:
+    # 每周一北京时间早上9点运行（UTC+8，对应UTC 1:00，周一=1）
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+jobs:
+  fetch-papers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run weekly tracker
+        env:
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        run: python run_weekly.py

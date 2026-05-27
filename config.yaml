@@ -1,0 +1,58 @@
+# 论文追踪配置文件
+# 修改这里来调整追踪的方向，不需要改代码
+
+# arXiv 分类（你的核心领域）
+arxiv_categories:
+  - cs.CV       # Computer Vision
+  - cs.IR       # Information Retrieval
+  - cs.CL       # Computation and Language
+
+# 关键词配置
+keywords:
+  # 核心方向：每篇都要关注
+  core:
+    - multimodal RAG
+    - visual RAG
+    - document visual question answering
+    - DocVQA
+    - visual document retrieval
+    - document grounding
+    - visual grounding document
+
+  # 相关方向：选择性关注
+  related:
+    - visual grounding
+    - referring expression
+    - document layout understanding
+    - document understanding
+    - chart understanding
+    - PDF understanding
+    - multimodal large language model
+    - vision language model document
+
+  # 热门追踪：泛读即可
+  trending:
+    - RAG
+    - multimodal retrieval
+    - vision language model
+
+# 顶会列表
+conferences:
+  - CVPR
+  - ICCV
+  - ECCV
+  - ACL
+  - EMNLP
+  - NeurIPS
+  - ICLR
+  - SIGIR
+
+# 飞书多维表格配置
+feishu:
+  app_token: "QEIsbVwrJaCQRMsDx3ycrjcrnsb"
+  table_id: "tblRPISztQkajEqM"
+
+# 摘要生成配置
+summarize:
+  model: "mimo-v2-flash"
+  max_tokens: 200
