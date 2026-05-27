@@ -3,11 +3,12 @@ fetch_arxiv.py
 从 arXiv 拉取论文，支持三种模式：
 - daily: 今天新出的论文（按关键词过滤）
 - weekly: 过去7天的论文（核心关键词，用于自研方向追踪）
-- trending: 过去30天高引用/热门论文
+- trending: 过去30天热门论文
 """
 
 import arxiv
 import yaml
+import time
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,21 +24,32 @@ def load_config():
         return yaml.safe_load(f)
 
 
-def build_query(keywords: list[str], categories: list[str]) -> str:
-    """拼接 arXiv 搜索 query"""
+def build_query(keywords: list, categories: list) -> str:
     kw_part = " OR ".join(f'"{kw}"' for kw in keywords)
     cat_part = " OR ".join(f"cat:{c}" for c in categories)
     return f"({kw_part}) AND ({cat_part})"
 
 
-def match_keywords(paper, all_keywords: list[str]) -> list[str]:
-    """返回论文命中的关键词列表"""
+def match_keywords(paper, all_keywords: list) -> list:
     text = (paper.title + " " + paper.summary).lower()
     return [kw for kw in all_keywords if kw.lower() in text]
 
 
-def fetch_daily(config: dict) -> list[dict]:
-    """拉取今天新出的论文（所有关键词）"""
+def fetch_with_retry(client, search, max_retries=3) -> list:
+    """带重试的拉取，遇到限流等待后重试"""
+    for attempt in range(max_retries):
+        try:
+            results = list(client.results(search))
+            return results
+        except Exception as e:
+            wait = 10 * (attempt + 1)
+            logger.warning(f"请求失败（{e}），{wait}秒后重试（{attempt+1}/{max_retries}）...")
+            time.sleep(wait)
+    logger.error("多次重试后仍失败，返回空结果")
+    return []
+
+
+def fetch_daily(config: dict) -> list:
     logger.info("拉取今日新文...")
     all_keywords = (
         config["keywords"]["core"]
@@ -45,11 +57,10 @@ def fetch_daily(config: dict) -> list[dict]:
         + config["keywords"]["trending"]
     )
     query = build_query(all_keywords, config["arxiv_categories"])
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=1)
-    results = []
 
-    client = arxiv.Client()
+    # delay_seconds 控制请求间隔，避免限流
+    client = arxiv.Client(delay_seconds=3, num_retries=3)
     search = arxiv.Search(
         query=query,
         max_results=100,
@@ -57,28 +68,26 @@ def fetch_daily(config: dict) -> list[dict]:
         sort_order=arxiv.SortOrder.Descending,
     )
 
-    for paper in client.results(search):
+    papers = fetch_with_retry(client, search)
+    results = []
+    for paper in papers:
         if paper.published < cutoff:
-            break
-        hit_keywords = match_keywords(paper, all_keywords)
-        if not hit_keywords:
             continue
-        results.append(_to_dict(paper, "今日新文", hit_keywords))
+        hit = match_keywords(paper, all_keywords)
+        if hit:
+            results.append(_to_dict(paper, "今日新文", hit))
 
     logger.info(f"今日新文：找到 {len(results)} 篇")
     return results
 
 
-def fetch_weekly(config: dict) -> list[dict]:
-    """拉取过去7天的核心方向论文（只用 core 关键词）"""
+def fetch_weekly(config: dict) -> list:
     logger.info("拉取自研方向（过去7天）...")
     core_keywords = config["keywords"]["core"]
     query = build_query(core_keywords, config["arxiv_categories"])
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-    results = []
 
-    client = arxiv.Client()
+    client = arxiv.Client(delay_seconds=3, num_retries=3)
     search = arxiv.Search(
         query=query,
         max_results=200,
@@ -86,45 +95,45 @@ def fetch_weekly(config: dict) -> list[dict]:
         sort_order=arxiv.SortOrder.Descending,
     )
 
-    for paper in client.results(search):
+    papers = fetch_with_retry(client, search)
+    results = []
+    for paper in papers:
         if paper.published < cutoff:
-            break
-        hit_keywords = match_keywords(paper, core_keywords)
-        if not hit_keywords:
             continue
-        results.append(_to_dict(paper, "自研方向", hit_keywords))
+        hit = match_keywords(paper, core_keywords)
+        if hit:
+            results.append(_to_dict(paper, "自研方向", hit))
 
     logger.info(f"自研方向：找到 {len(results)} 篇")
     return results
 
 
-def fetch_trending(config: dict) -> list[dict]:
-    """拉取过去30天的热门方向论文（按相关性排序，取前50篇）"""
+def fetch_trending(config: dict) -> list:
     logger.info("拉取热门方向（过去30天）...")
     all_keywords = config["keywords"]["core"] + config["keywords"]["related"]
     query = build_query(all_keywords, config["arxiv_categories"])
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    results = []
 
-    client = arxiv.Client()
+    client = arxiv.Client(delay_seconds=3, num_retries=3)
     search = arxiv.Search(
         query=query,
         max_results=50,
         sort_by=arxiv.SortCriterion.Relevance,
     )
 
-    for paper in client.results(search):
+    papers = fetch_with_retry(client, search)
+    results = []
+    for paper in papers:
         if paper.published < cutoff:
             continue
-        hit_keywords = match_keywords(paper, all_keywords)
-        results.append(_to_dict(paper, "热门方向", hit_keywords))
+        hit = match_keywords(paper, all_keywords)
+        results.append(_to_dict(paper, "热门方向", hit))
 
     logger.info(f"热门方向：找到 {len(results)} 篇")
     return results
 
 
-def _to_dict(paper, source_type: str, hit_keywords: list[str]) -> dict:
+def _to_dict(paper, source_type: str, hit_keywords: list) -> dict:
     return {
         "title": paper.title,
         "authors": ", ".join(a.name for a in paper.authors[:5]),
@@ -135,10 +144,3 @@ def _to_dict(paper, source_type: str, hit_keywords: list[str]) -> dict:
         "arxiv_url": paper.entry_id,
         "arxiv_id": paper.entry_id.split("/")[-1],
     }
-
-
-if __name__ == "__main__":
-    cfg = load_config()
-    papers = fetch_daily(cfg)
-    for p in papers[:3]:
-        print(p["title"], "|", p["keywords_hit"])
