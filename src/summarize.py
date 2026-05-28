@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
-MIMO_BASE_URL = "https://api.xiaomimimo.com/v1/chat/completions"
+MIMO_BASE_URL = "https://token-plan-cn.xiaomimimo.com/v1"
 
 PROMPT_TEMPLATE = """你是一个AI论文助手。请用1-2句中文概括以下论文的核心贡献，要求：
 - 说清楚做了什么、解决了什么问题

@@ -20,7 +20,7 @@
 | `MIMO_API_KEY` | 小米 MiMo API Key |
 | `FEISHU_APP_ID` | 飞书应用 App ID |
 | `FEISHU_APP_SECRET` | 飞书应用 App Secret |
-| `FEISHU_WEBHOOK_URL` | 飞书群机器人 Webhook URL |
+| `FEISHU_USER_ID` | 飞书用户ID |
 
 ## 本地测试
 
@@ -30,7 +30,7 @@ pip install -r requirements.txt
 export MIMO_API_KEY=your_key
 export FEISHU_APP_ID=your_id
 export FEISHU_APP_SECRET=your_secret
-export FEISHU_WEBHOOK_URL=your_webhook
+export FEISHU_USER_ID=your_userid
 
 python run_daily.py   # 测试每日任务
 python run_weekly.py  # 测试每周任务
