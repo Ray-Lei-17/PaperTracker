@@ -34,19 +34,23 @@ def _send(text: str):
         logger.warning("FEISHU_USER_ID 未设置，跳过通知")
         return
 
+    payload = {
+        "receive_id": user_id,
+        "msg_type": "text",
+        "content": json.dumps({"text": text}),
+    }
+    logger.info(f"发送消息到 user_id: {user_id[:4]}****")
+    logger.info(f"消息 payload: {payload}")
     resp = requests.post(
         f"{FEISHU_BASE}/im/v1/messages?receive_id_type=user_id",
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
-        json={
-            "receive_id": user_id,
-            "msg_type": "text",
-            "content": json.dumps({"text": text}),
-        },
+        json=payload,
         timeout=10,
     )
+    logger.info(f"发消息响应: {resp.status_code} {resp.text[:300]}")
     resp.raise_for_status()
     logger.info("飞书通知发送成功")
 

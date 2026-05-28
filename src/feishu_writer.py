@@ -4,6 +4,7 @@ feishu_writer.py
 """
 
 import os
+from datetime import datetime, timezone
 import logging
 import requests
 import yaml
@@ -92,7 +93,7 @@ class FeishuClient:
                     "AI总结": p.get("ai_summary", ""),
                     "来源类型": p["source_type"],
                     "关键词命中": p["keywords_hit"],
-                    "发布日期": p["published_date"],
+                    "发布日期": int(datetime.strptime(p["published_date"], "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000),
                     "arXiv链接": p["arxiv_url"],
                     "是否已读": False,
                 }
