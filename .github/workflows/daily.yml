@@ -27,5 +27,5 @@ jobs:
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_USER_ID: ${{ secrets.FEISHU_USER_ID }}
         run: python run_daily.py

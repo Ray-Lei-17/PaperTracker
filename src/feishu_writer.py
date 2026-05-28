@@ -35,7 +35,9 @@ class FeishuClient:
             json={"app_id": self.app_id, "app_secret": self.app_secret},
         )
         resp.raise_for_status()
-        self._token = resp.json()["tenant_access_token"]
+        data = resp.json()
+        logger.info(f"获取 token 响应: {data}")
+        self._token = data["tenant_access_token"]
         return self._token
 
     def _headers(self) -> dict:
@@ -44,8 +46,7 @@ class FeishuClient:
             "Content-Type": "application/json",
         }
 
-    def get_existing_ids(self, app_token: str, table_id: str) -> set[str]:
-        """获取表格中已有的 arXiv ID，用于去重"""
+    def get_existing_ids(self, app_token: str, table_id: str) -> set:
         existing = set()
         page_token = None
 
@@ -59,6 +60,7 @@ class FeishuClient:
                 headers=self._headers(),
                 params=params,
             )
+            logger.info(f"查询已有记录响应: {resp.status_code} {resp.text[:200]}")
             resp.raise_for_status()
             data = resp.json()
 
@@ -76,8 +78,7 @@ class FeishuClient:
         logger.info(f"表格中已有 {len(existing)} 条记录")
         return existing
 
-    def batch_write(self, app_token: str, table_id: str, papers: list[dict]) -> int:
-        """批量写入论文，每次最多写500条"""
+    def batch_write(self, app_token: str, table_id: str, papers: list) -> int:
         if not papers:
             return 0
 
@@ -97,7 +98,6 @@ class FeishuClient:
                 }
             })
 
-        # 飞书单次最多写500条
         written = 0
         for i in range(0, len(records), 500):
             chunk = records[i:i+500]
@@ -106,6 +106,8 @@ class FeishuClient:
                 headers=self._headers(),
                 json={"records": chunk},
             )
+            logger.info(f"写入响应状态码: {resp.status_code}")
+            logger.info(f"写入响应内容: {resp.text[:500]}")
             resp.raise_for_status()
             written += len(chunk)
             logger.info(f"  写入 {written}/{len(records)} 条")
@@ -113,8 +115,7 @@ class FeishuClient:
         return written
 
 
-def write_papers(papers: list[dict]):
-    """去重后写入飞书，返回实际写入数量"""
+def write_papers(papers: list):
     config = load_config()
     app_token = config["feishu"]["app_token"]
     table_id = config["feishu"]["table_id"]
@@ -122,7 +123,6 @@ def write_papers(papers: list[dict]):
     client = FeishuClient()
     existing_ids = client.get_existing_ids(app_token, table_id)
 
-    # 过滤已存在的
     new_papers = [p for p in papers if p["arxiv_id"] not in existing_ids]
     logger.info(f"去重后新增 {len(new_papers)}/{len(papers)} 篇")
 
@@ -130,20 +130,3 @@ def write_papers(papers: list[dict]):
         return 0
 
     return client.batch_write(app_token, table_id, new_papers)
-
-
-if __name__ == "__main__":
-    # 简单测试
-    test_papers = [{
-        "title": "Test Paper",
-        "authors": "Author A, Author B",
-        "abstract": "This is a test abstract.",
-        "ai_summary": "测试论文总结。",
-        "source_type": "今日新文",
-        "keywords_hit": "multimodal RAG",
-        "published_date": "2026-05-27",
-        "arxiv_url": "https://arxiv.org/abs/2026.00001",
-        "arxiv_id": "2026.00001",
-    }]
-    n = write_papers(test_papers)
-    print(f"写入 {n} 条")
