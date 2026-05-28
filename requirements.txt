@@ -1,4 +1,3 @@
-arxiv>=2.1.3
 requests>=2.32.0
 pyyaml>=6.0
 python-dateutil>=2.9.0
